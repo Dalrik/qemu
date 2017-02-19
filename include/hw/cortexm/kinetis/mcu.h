@@ -26,6 +26,8 @@
 #include <hw/cortexm/mcu.h>
 #include <hw/cortexm/kinetis/mcg.h>
 #include <hw/cortexm/kinetis/sim.h>
+#include <hw/cortexm/kinetis/port.h>
+#include <hw/cortexm/kinetis/gpio.h>
 #include <hw/cortexm/parson.h>
 
 #include <hw/cortexm/kinetis/capabilities.h>
@@ -85,6 +87,10 @@ typedef struct KinetisMCUState {
     DeviceState *sim;
     DeviceState *mcg;
 
+    DeviceState *port[KINETIS_MAX_PORT];
+    DeviceState *gpio[KINETIS_MAX_PORT];
+    int num_port;
+
     //DeviceState *flash;
     //DeviceState *pwr;
     //DeviceState *exti;
@@ -92,8 +98,6 @@ typedef struct KinetisMCUState {
     //DeviceState *syscfg;
     //DeviceState *afio; // For STM32F1 only.
 
-    //DeviceState *gpio[STM32_MAX_GPIO];
-    //int num_gpio;
     //DeviceState *usart[STM32_MAX_USART];
 
 } KinetisMCUState;

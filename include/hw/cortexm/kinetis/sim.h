@@ -29,6 +29,7 @@
 
 #define DEVICE_PATH_KINETIS_SIM DEVICE_PATH_KINETIS "SIM"
 
+#define KINETIS_SIM_SIZEOF_ENABLING_BITFIELD (sizeof(DEVICE_PATH_KINETIS_SIM)+32)
 
 // ----------------------------------------------------------------------------
 

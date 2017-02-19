@@ -3,5 +3,6 @@
 obj-$(CONFIG_KINETIS) += mcus.o mcu.o boards.o
 obj-$(CONFIG_KINETIS) += sim.o
 obj-$(CONFIG_KINETIS) += mcg.o
+obj-$(CONFIG_KINETIS) += port.o gpio.o
 
 # [GNU ARM Eclipse]

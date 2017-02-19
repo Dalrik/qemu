@@ -35,14 +35,15 @@
 
 // ----- Private --------------------------------------------------------------
 
-#if 0
-// Create children GPIO nodes.
-// Public names are "/machine/stm32/GPIO%c".
-static void create_gpio(KinetisMCUState *state, kinetis_gpio_index_t index)
+// Create children PORT and GPIO nodes.
+// Public names are "/machine/kinetis/PORT%c" and "/machine/kinetis/GPIO%c".
+static void create_port(KinetisMCUState *state, kinetis_port_index_t index)
 {
-    state->gpio[index] = DEVICE(stm32_gpio_create(state->container, index));
+    state->port[index] = DEVICE(kinetis_port_create(state->container, index));
+    state->gpio[index] = DEVICE(kinetis_gpio_create(state->container, index));
 }
 
+#if 0
 // Create children USART nodes.
 // Public names are "/machine/stm32/USART%d".
 static void create_usart(STM32MCUState *state, stm32_usart_index_t index)
@@ -166,6 +167,44 @@ static void kinetis_mcu_realize_callback(DeviceState *dev, Error **errp)
 
         state->mcg = DEVICE(mcg);
     }
+
+    state->num_port = 0;
+    // The presence in SVD is maximal, must be validated by capabilities.
+    // PORTA
+    if (capabilities->has_porta
+            && svd_has_named_peripheral(cm_state->svd_json, "PORTA")) {
+        create_port(state, KINETIS_PORT_PORTA);
+        state->num_port = 1;
+    }
+
+    // PORTB
+    if (capabilities->has_portb
+            && svd_has_named_peripheral(cm_state->svd_json, "PORTB")) {
+        create_port(state, KINETIS_PORT_PORTB);
+        state->num_port = 2;
+    }
+
+    // PORTC
+    if (capabilities->has_portc
+            && svd_has_named_peripheral(cm_state->svd_json, "PORTC")) {
+        create_port(state, KINETIS_PORT_PORTC);
+        state->num_port = 3;
+    }
+
+    // PORTD
+    if (capabilities->has_portd
+            && svd_has_named_peripheral(cm_state->svd_json, "PORTD")) {
+        create_port(state, KINETIS_PORT_PORTD);
+        state->num_port = 4;
+    }
+
+    // PORTE
+    if (capabilities->has_porte
+            && svd_has_named_peripheral(cm_state->svd_json, "PORTE")) {
+        create_port(state, KINETIS_PORT_PORTE);
+        state->num_port = 5;
+    }
+
 #if 0
 
     // FLASH; assume the presence in SVD is enough.

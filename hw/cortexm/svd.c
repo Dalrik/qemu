@@ -132,6 +132,54 @@ void svd_set_register_properties_group(JSON_Object *svd, Object *obj)
     cm_object_property_set_str(obj, str, "svd-reset-mask");
 }
 
+// Taken from http://stackoverflow.com/questions/779875/what-is-the-function-to-replace-string-in-c
+// You must free the result if result is non-NULL.
+static char *str_replace(const char *orig, const char *rep, const char *with) {
+    char *result; // the return string
+    const char *ins;    // the next insert point
+    char *tmp;    // varies
+    int len_rep;  // length of rep (the string to remove)
+    int len_with; // length of with (the string to replace rep with)
+    int len_front; // distance between rep and end of last rep
+    int count;    // number of replacements
+
+    // sanity checks and initialization
+    if (!orig || !rep)
+        return NULL;
+    len_rep = strlen(rep);
+    if (len_rep == 0)
+        return NULL; // empty rep causes infinite loop during count
+    if (!with)
+        with = "";
+    len_with = strlen(with);
+
+    // count the number of replacements needed
+    ins = orig;
+    for (count = 0; (tmp = strstr(ins, rep)); ++count) {
+        ins = tmp + len_rep;
+    }
+
+    tmp = result = malloc(strlen(orig) + (len_with - len_rep) * count + 1);
+
+    if (!result)
+        return NULL;
+
+    // first time through the loop, all the variable are set correctly
+    // from here on,
+    //    tmp points to the end of the result string
+    //    ins points to the next occurrence of rep in orig
+    //    orig points to the remainder of orig after "end of rep"
+    while (count--) {
+        ins = strstr(orig, rep);
+        len_front = ins - orig;
+        tmp = strncpy(tmp, orig, len_front) + len_front;
+        tmp = strcpy(tmp, with) + len_with;
+        orig += len_front + len_rep; // move to next "end of rep"
+    }
+    strcpy(tmp, orig);
+    return result;
+}
+
 Object *svd_add_peripheral_properties_and_children(Object *obj,
         JSON_Object *svd, JSON_Object *root)
 {
@@ -193,34 +241,98 @@ Object *svd_add_peripheral_properties_and_children(Object *obj,
     for (i = 0; i < count; ++i) {
         JSON_Object *regi = json_array_get_object(registers, i);
 
-        const char *regi_name = json_object_get_string(regi, "name");
+        if (json_object_has_value(regi, "dim")) {
+            // This "register" is really an array of registers.
+            // Need to create a register for each entry
 
-        // Create the register with exactly the SVD name
-        // (usually uppercase).
-        Object *reg = cm_object_new(obj, regi_name,
-        TYPE_PERIPHERAL_REGISTER);
+            const char* str;
+            // Already determined that "dim" exists
+            str = json_object_get_string(regi, "dim");
+            unsigned int dim = svd_parse_uint(str);
 
-        // Store a local copy of the node name, for easier access.
-        // Passing a parsed string is ok, it is copied.
-        cm_object_property_set_str(reg, regi_name, "name");
+            str = json_object_get_string(regi, "dimIncrement");
+            uint32_t incr;
+            if (str != NULL) {
+                incr = svd_parse_uint(str);
+            } else {
+                error_printf("Missing dimIncrement.\n");
+                exit(1);
+            }
+            str = json_object_get_string(regi, "dimIndex");
+            if (str == NULL) {
+                error_printf("Missing dimIndex.\n");
+                exit(1);
+            }
 
-        svd_add_peripheral_register_properties_and_children(reg, regi);
+            // This string must be freed
+            char* dim_index_str = strdup(str);
+            const char* dim_index = strtok(dim_index_str, ",");
 
-        cm_object_realize(reg);
+            const char* regi_name_template = json_object_get_string(regi, "name");
+
+            uint32_t offset = 0;
+            for (unsigned int i = 0; i < dim; i++) {
+                if (dim_index == NULL) {
+                    error_printf("Not enough elements in dimIndex.\n");
+                    exit(1);
+                }
+                // Determine the instance name
+                // regi_name must be free'd
+                char *regi_name = str_replace(regi_name_template, "%s", dim_index);
+                if (regi_name == NULL) {
+                    error_printf("Out of memory.\n");
+                    exit(1);
+                }
+                
+                Object *reg = cm_object_new(obj, regi_name,
+                        TYPE_PERIPHERAL_REGISTER);
+
+                // Store a local copy of the node name, for easier access.
+                // Passing a parsed string is ok, it is copied.
+                cm_object_property_set_str(reg, regi_name, "name");
+
+                svd_add_peripheral_register_properties_and_children(reg, regi, offset);
+
+                cm_object_realize(reg);
+
+                free(regi_name);
+
+                offset += incr;
+                dim_index = strtok(NULL, ",");
+            }
+
+            free(dim_index_str);
+
+        } else {
+            const char *regi_name = json_object_get_string(regi, "name");
+
+            // Create the register with exactly the SVD name
+            // (usually uppercase).
+            Object *reg = cm_object_new(obj, regi_name,
+            TYPE_PERIPHERAL_REGISTER);
+
+            // Store a local copy of the node name, for easier access.
+            // Passing a parsed string is ok, it is copied.
+            cm_object_property_set_str(reg, regi_name, "name");
+
+            svd_add_peripheral_register_properties_and_children(reg, regi, 0);
+
+            cm_object_realize(reg);
+        }
     }
 
     return obj;
 }
 
 Object *svd_add_peripheral_register_properties_and_children(Object *obj,
-        JSON_Object *svd)
+        JSON_Object *svd, uint32_t offset)
 {
     const char *str;
     uint32_t val32;
 
     str = json_object_get_string(svd, "addressOffset");
     if (str != NULL) {
-        val32 = svd_parse_uint(str);
+        val32 = svd_parse_uint(str) + offset;
         cm_object_property_set_int(obj, val32, "offset-bytes");
     } else {
         error_printf("Missing register offset_bytes.\n");

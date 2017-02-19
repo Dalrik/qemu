@@ -1,6 +1,7 @@
 /*
  * Kinetis - GPIO (General Purpose Input/Output) emulation.
  *
+ * Copyright (c) 2017 Ian Thompson.
  * Copyright (c) 2016 Liviu Ionescu.
  *
  * This program is free software; you can redistribute it and/or modify

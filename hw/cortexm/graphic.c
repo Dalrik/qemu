@@ -33,6 +33,8 @@
 
 // ----------------------------------------------------------------------------
 
+#if defined(CONFIG_SDL)
+
 static void cortexm_graphic_board_init_graphic_context(
         BoardGraphicContext *board_graphic_context);
 
@@ -50,14 +52,18 @@ static void cortexm_graphic_process_mouse_button_down(void);
 
 static void cortexm_graphic_process_mouse_button_up(void);
 
+#endif
+
 // ----------------------------------------------------------------------------
 
 static bool is_not_nographic = false;
 static bool is_terminated = false;
+#if defined(CONFIG_SDL)
 static SDL_Cursor *saved_cursor = NULL;
 static SDL_Cursor *button_cursor = NULL;
 static ButtonState *current_button = NULL;
 static ButtonState *pushed_button = NULL;
+#endif
 
 // ----------------------------------------------------------------------------
 
@@ -65,6 +71,8 @@ typedef struct {
     int x;
     int y;
 } MousePosition;
+
+#if defined(CONFIG_SDL)
 
 static BoardGraphicContext *board_graphic_context;
 
@@ -189,6 +197,8 @@ static void cortexm_graphic_process_event(SDL_Event* event)
     }
 }
 
+#endif /* defined(CONFIG_SDL) */
+
 #if defined(USE_GRAPHIC_POLL_EVENT)
 static QEMUTimer *event_loop_timer;
 #endif /* defined(USE_GRAPHIC_POLL_EVENT) */
@@ -275,6 +285,8 @@ int cortexm_graphic_enqueue_event(int code, void *data1, void *data2)
 
 // ----------------------------------------------------------------------------
 
+#if defined(CONFIG_SDL)
+
 static inline bool cortexm_graphic_mouse_is_in_button(MousePosition *mp,
         ButtonState *button_state)
 {
@@ -351,6 +363,8 @@ static void cortexm_graphic_process_mouse_button_up(void)
     }
 }
 
+#endif /* defined(CONFIG_SDL) */
+
 // ----------------------------------------------------------------------------
 
 // Called indirectly via the event loop, to clean the board graphic context.
@@ -416,6 +430,8 @@ void cortexm_graphic_quit(void)
 
 static QemuThread start_thread;
 
+#if defined(CONFIG_SDL)
+
 // Called via the atexit() mechanism, to clean the board graphic context.
 static void cortexm_graphic_atexit(void)
 {
@@ -432,6 +448,8 @@ static void cortexm_graphic_atexit(void)
         }
     }
 }
+
+#endif /* defined(CONFIG_SDL) */
 
 // Start the graphic subsystem. From this moment on, the event queue
 // must be available to enqueue requests, even if the requests will
@@ -492,8 +510,14 @@ void cortexm_graphic_board_clear_graphic_context(
 bool cortexm_graphic_board_is_graphic_context_initialised(
         BoardGraphicContext *board_graphic_context)
 {
+#if defined(CONFIG_SDL)
     return (board_graphic_context->surface != NULL);
+#else
+    return true;
+#endif
 }
+
+#if defined(CONFIG_SDL)
 
 static void cortexm_graphic_board_init_graphic_context(
         BoardGraphicContext *board_graphic_context)
@@ -593,6 +617,8 @@ static void cortexm_graphic_board_init_graphic_context(
 #endif /* defined(CONFIG_SDL) */
 }
 
+#endif /* defined(CONFIG_SDL) */
+
 #define DEFAULT_BUTTONS_CAPACITY (2)
 
 void cortexm_graphic_board_add_button(
@@ -631,15 +657,23 @@ void cortexm_graphic_led_clear_graphic_context(
 {
     qemu_log_function_name();
 
+#if defined(CONFIG_SDL)
     led_graphic_context->crop_on = NULL;
     led_graphic_context->crop_off = NULL;
+#endif
 }
 
 bool cortexm_graphic_led_is_graphic_context_initialised(
         LEDGraphicContext *led_graphic_context)
 {
+#if defined(CONFIG_SDL)
     return (led_graphic_context->crop_on != NULL);
+#else
+    return true;
+#endif
 }
+
+#if defined(CONFIG_SDL)
 
 static void cortexm_graphic_led_init_graphic_context(
         BoardGraphicContext *board_graphic_context,
@@ -715,6 +749,8 @@ static void cortexm_graphic_led_turn(BoardGraphicContext *board_graphic_context,
 
 #endif /* defined(CONFIG_SDL) */
 }
+
+#endif /* defined(CONFIG_SDL) */
 
 // ----------------------------------------------------------------------------
 

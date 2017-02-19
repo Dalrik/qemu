@@ -1,5 +1,7 @@
 # [GNU ARM Eclipse]
 
-obj-$(CONFIG_KINETIS) += mcus.o boards.o
+obj-$(CONFIG_KINETIS) += mcus.o mcu.o boards.o
+obj-$(CONFIG_KINETIS) += sim.o
+obj-$(CONFIG_KINETIS) += mcg.o
 
 # [GNU ARM Eclipse]

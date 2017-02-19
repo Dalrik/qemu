@@ -17,8 +17,8 @@
  * with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <hw/cortexm/kinetis.h>
-#include "qemu/module.h"
+#include <hw/cortexm/board.h>
+#include <hw/cortexm/kinetis/mcus.h>
 #include <hw/cortexm/helper.h>
 
 #if defined(CONFIG_VERBOSE)
@@ -29,6 +29,59 @@
  * This file defines several Kinetis boards.
  * Where available, the board names follow the CMSIS Packs names.
  */
+
+/* ----- FRDM-K64F ----- */
+static void frdm_k64f_board_init_callback(MachineState *machine)
+{
+    CortexMBoardState *board = CORTEXM_BOARD_STATE(machine);
+
+    cortexm_board_greeting(board);
+//    BoardGraphicContext *board_graphic_context =
+//            cortexm_board_init_graphic_image(board, "FRDM-K64F.jpg");
+    {
+        // Create the MCU.
+        Object *mcu = cm_object_new_mcu(machine, TYPE_MK64FN1M0VLL12);
+
+        // Set the board specific oscillator frequencies.
+        cm_object_property_set_int(mcu, 8000000, "hse-freq-hz"); // 8.0 MHz
+        cm_object_property_set_int(mcu, 32768, "lse-freq-hz"); // 32 kHz
+
+        cm_object_realize(mcu);
+    }
+
+#if 0
+    Object *peripheral = cm_container_get_peripheral();
+    // Create board LEDs
+    gpio_led_create_from_info(peripheral, stm32f4_discovery_leds_info,
+            board_graphic_context);
+
+    if (board_graphic_context != NULL) {
+        // Create board buttons.
+        button_reset_create_from_info(peripheral,
+                &stm32f4_discovery_button_reset_info, board_graphic_context);
+        button_gpio_create_from_info(peripheral,
+                stm32f4_discovery_buttons_user_info, board_graphic_context);
+    }
+#endif
+}
+
+static void frdm_k64f_board_class_init_callback(ObjectClass *oc,
+        void *data)
+{
+    MachineClass *mc = MACHINE_CLASS(oc);
+
+    mc->desc = "Freescale Freedom Development Platform for "
+               "Kinetis K6[34] and K24 MCUs (Experimental)";
+    mc->init = frdm_k64f_board_init_callback;
+}
+
+static const TypeInfo frdm_k64f_machine = {
+    .name = BOARD_TYPE_NAME("FRDM-K64F"),
+    .parent = TYPE_CORTEXM_BOARD,
+    .class_init = frdm_k64f_board_class_init_callback,
+};
+
+#if 0
 
 /* ----- FRDM-K20D50M ----- */
 static void frdm_k20d50m_board_init(MachineState *machine);
@@ -59,22 +112,6 @@ static void frdm_k22f_board_init(MachineState *machine)
 {
     cm_board_greeting(machine);
     mk22fn512vlh12_mcu_init(machine);
-    /* TODO: Add board inits */
-}
-
-/* ----- FRDM-K64F ----- */
-static void frdm_k64f_board_init(MachineState *machine);
-
-static QEMUMachine frdm_k64f_machine = {
-    .name = "FRDM-K64F",
-    .desc = "Freescale Freedom Development Platform for "
-            "Kinetis K6[34] and K24 MCUs (Experimental)",
-    .init = frdm_k64f_board_init };
-
-static void frdm_k64f_board_init(MachineState *machine)
-{
-    cm_board_greeting(machine);
-    mk64fn1m0vll12_mcu_init(machine);
     /* TODO: Add board inits */
 }
 
@@ -159,19 +196,21 @@ static void frdm_kl46z_board_init(MachineState *machine)
 
     /* TODO: Add board inits */
 }
+#endif
 
 /* ----- Boards inits ----- */
-static void kinetis_machine_init(void)
+static void kinetis_machines_init(void)
 {
+    type_register_static(&frdm_k64f_machine);
+#if 0
     qemu_register_machine(&frdm_k20d50m_machine);
-    qemu_register_machine(&frdm_k64f_machine);
     qemu_register_machine(&frdm_k22f_machine);
     qemu_register_machine(&twr_k60f120m_machine);
     qemu_register_machine(&frdm_kl25z_machine);
     qemu_register_machine(&frdm_kl26z_machine);
     qemu_register_machine(&frdm_kl46z_machine);
     qemu_register_machine(&frdm_kl43z_machine);
+#endif
 }
 
-machine_init( kinetis_machine_init);
-
+type_init(kinetis_machines_init);

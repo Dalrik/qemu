@@ -1,0 +1,174 @@
+{
+    "comment": "Patch for QEMU use.",
+    "device": {
+        "name": "MK64F12",
+        "cpu": {
+            "deviceNumInterrupts": "86",
+            "qemuItmPresent": "true"
+        },
+        "access": "read-write",
+        "qemuAlignment": "any",
+        "peripherals": [
+            {
+                "name": "ADC0",
+                "qemuGroupName": "ADC"
+            },
+            {
+                "name": "ADC1",
+                "qemuGroupName": "ADC"
+            },
+            {
+                "name": "AIPS0",
+                "qemuGroupName": "AIPS"
+            },
+            {
+                "name": "AIPS1",
+                "qemuGroupName": "AIPS"
+            },
+            {
+                "name": "CAN0",
+                "qemuGroupName": "CAN"
+            },
+            {
+                "name": "CMP0",
+                "qemuGroupName": "CMP"
+            },
+            {
+                "name": "CMP1",
+                "qemuGroupName": "CMP"
+            },
+            {
+                "name": "CMP2",
+                "qemuGroupName": "CMP"
+            },
+            {
+                "name": "DAC0",
+                "qemuGroupName": "DAC"
+            },
+            {
+                "name": "DAC1",
+                "qemuGroupName": "DAC"
+            },
+            {
+                "name": "FTM0",
+                "qemuGroupName": "FTM"
+            },
+            {
+                "name": "FTM1",
+                "qemuGroupName": "FTM"
+            },
+            {
+                "name": "FTM2",
+                "qemuGroupName": "FTM"
+            },
+            {
+                "name": "FTM3",
+                "qemuGroupName": "FTM"
+            },
+            {
+                "name": "I2C0",
+                "qemuGroupName": "I2C"
+            },
+            {
+                "name": "I2C1",
+                "qemuGroupName": "I2C"
+            },
+            {
+                "name": "I2C2",
+                "qemuGroupName": "I2C"
+            },
+            {
+                "name": "I2S0",
+                "qemuGroupName": "I2S"
+            },
+            {
+                "name": "LPTMR0",
+                "qemuGroupName": "LPTMR"
+            },
+            {
+                "name": "PDB0",
+                "qemuGroupName": "PDB"
+            },
+            {
+                "name": "PORTA",
+                "qemuGroupName": "PORT"
+            },
+            {
+                "name": "PORTB",
+                "qemuGroupName": "PORT"
+            },
+            {
+                "name": "PORTC",
+                "qemuGroupName": "PORT"
+            },
+            {
+                "name": "PORTD",
+                "qemuGroupName": "PORT"
+            },
+            {
+                "name": "PORTE",
+                "qemuGroupName": "PORT"
+            },
+            {
+                "name": "PTA",
+                "qemuGroupName": "GPIO"
+            },
+            {
+                "name": "PTB",
+                "qemuGroupName": "GPIO"
+            },
+            {
+                "name": "PTC",
+                "qemuGroupName": "GPIO"
+            },
+            {
+                "name": "PTD",
+                "qemuGroupName": "GPIO"
+            },
+            {
+                "name": "PTE",
+                "qemuGroupName": "GPIO"
+            },
+            {
+                "name": "SPI0",
+                "qemuGroupName": "SPI"
+            },
+            {
+                "name": "SPI1",
+                "qemuGroupName": "SPI"
+            },
+            {
+                "name": "SPI2",
+                "qemuGroupName": "SPI"
+            },
+            {
+                "name": "UART0",
+                "qemuGroupName": "UART"
+            },
+            {
+                "name": "UART1",
+                "qemuGroupName": "UART"
+            },
+            {
+                "name": "UART2",
+                "qemuGroupName": "UART"
+            },
+            {
+                "name": "UART3",
+                "qemuGroupName": "UART"
+            },
+            {
+                "name": "UART4",
+                "qemuGroupName": "UART"
+            },
+            {
+                "name": "UART5",
+                "qemuGroupName": "UART"
+            },
+            {
+                "name": "USB0",
+                "qemuGroupName": "USB"
+            }
+        ]
+    }
+}

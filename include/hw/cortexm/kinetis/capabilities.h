@@ -136,6 +136,11 @@ typedef struct {
 
     kinetis_family_t family;
 
+    // Chip-specific clock frequencies
+    uint32_t int_irc_freq_hz;
+    uint32_t int_fast_freq_hz;
+    uint32_t int_slow_freq_hz;
+
     unsigned int has_periph_bitband :1;
 
     // ADC

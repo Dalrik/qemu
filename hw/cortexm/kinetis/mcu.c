@@ -148,31 +148,25 @@ static void kinetis_mcu_realize_callback(DeviceState *dev, Error **errp)
         Object *mcg = cm_object_new(state->container, "MCG",
         TYPE_KINETIS_MCG);
 
+        // Copy internal oscillator frequencies from capabilities.
+        cm_object_property_set_int(mcg, capabilities->int_irc_freq_hz,
+                "int-irc-freq-hz");
+        cm_object_property_set_int(mcg, capabilities->int_fast_freq_hz,
+                "int-fast-freq-hz");
+        cm_object_property_set_int(mcg, capabilities->int_slow_freq_hz,
+                "int-slow-freq-hz");
+
+        // Forward properties from MCU to MCG
+        cm_object_property_set_int(mcg, state->xtal_freq_hz,
+                "xtal-freq-hz");
+        cm_object_property_set_int(mcg, state->xtal32_freq_hz,
+                "xtal32-freq-hz");
+
         cm_object_realize(mcg);
 
         state->mcg = DEVICE(mcg);
     }
 #if 0
-
-    // MCG; assume the presence in SVD is enough.
-    if (svd_has_named_peripheral(cm_state->svd_json, "MCG")) {
-        // MCG will be named "/machine/mcu/kinetis/MCG"
-        Object *rcc = cm_object_new(state->container, "MCG", TYPE_KINETIS_MCG);
-
-        // Copy internal oscillator frequencies from capabilities.
-        cm_object_property_set_int(mcg, capabilities->hsi_freq_hz,
-                "hsi-freq-hz");
-        cm_object_property_set_int(mcg, capabilities->lsi_freq_hz,
-                "lsi-freq-hz");
-
-        // Forward properties from MCU to MCG.
-        cm_object_property_set_int(mcg, state->hse_freq_hz, "hse-freq-hz");
-        cm_object_property_set_int(mcg, state->lse_freq_hz, "lse-freq-hz");
-
-        cm_object_realize(mcg);
-
-        state->mcg = DEVICE(mcg);
-    }
 
     // FLASH; assume the presence in SVD is enough.
     if (svd_has_named_peripheral(cm_state->svd_json, "FLASH")) {
@@ -420,11 +414,11 @@ static void kinetis_mcu_instance_init_callback(Object *obj)
 
     KinetisMCUState *state = KINETIS_MCU_STATE(obj);
 
-    cm_object_property_add_uint32(obj, "hse-freq-hz", &state->hse_freq_hz);
-    state->hse_freq_hz = 0;
+    cm_object_property_add_uint32(obj, "xtal-freq-hz", &state->xtal_freq_hz);
+    state->xtal_freq_hz = 0;
 
-    cm_object_property_add_uint32(obj, "lse-freq-hz", &state->lse_freq_hz);
-    state->lse_freq_hz = 0;
+    cm_object_property_add_uint32(obj, "xtal32-freq-hz", &state->xtal32_freq_hz);
+    state->xtal32_freq_hz = 0;
 }
 
 static void kinetis_mcu_class_init_callback(ObjectClass *klass, void *data)

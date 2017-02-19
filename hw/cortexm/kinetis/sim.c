@@ -280,17 +280,49 @@ static void kinetis_sim_xxx_post_read_callback(Object *reg, Object *periph,
 }
 #endif
 
+extern int system_clock_scale;
+
+void kinetis_sim_update_clocks(KinetisSIMState* state)
+{
+    uint32_t core_freq_hz;
+    core_freq_hz = (state->mcg_out_freq_hz / 
+            (0x01U + register_bitfield_read_value(state->u.k6.fld.clkdiv1.outdiv1)));
+
+    // Prevent frequency from being 0
+    if (core_freq_hz == 0) {
+        core_freq_hz = 1;
+    }
+    state->core_freq_hz = core_freq_hz;
+    
+    system_clock_scale = NANOSECONDS_PER_SECOND / core_freq_hz;
+    if (system_clock_scale == 0) {
+        system_clock_scale = 1;
+    }
+
+    qemu_log_mask(LOG_FUNC, "%s() core_freq_hz=%d, system_clock_scale=%d\n", __FUNCTION__,
+            core_freq_hz, system_clock_scale);
+}
+
+static void kinetis_sim_post_write_callback(Object *reg, Object *periph,
+        uint32_t addr, uint32_t offset, unsigned size,
+        peripheral_register_t value, peripheral_register_t full_value)
+{
+    KinetisSIMState *state = KINETIS_SIM_STATE(periph);
+    kinetis_sim_update_clocks(state);
+}
+
 // ----------------------------------------------------------------------------
 
 static void kinetis_sim_instance_init_callback(Object *obj)
 {
     qemu_log_function_name();
 
-    //KinetisSIMState *state = KINETIS_SIM_STATE(obj);
+    KinetisSIMState *state = KINETIS_SIM_STATE(obj);
 
     // Capabilities are not yet available.
 
-    // TODO: Add code to initialise all members.
+    state->mcg_out_freq_hz = 0;
+    state->core_freq_hz = 0;
 }
 
 static void kinetis_sim_realize_callback(DeviceState *dev, Error **errp)
@@ -333,6 +365,8 @@ static void kinetis_sim_realize_callback(DeviceState *dev, Error **errp)
         // peripheral_register_set_post_read(state->k6.reg.xxx, &kinetis_sim_xxx_post_read_callback);
         // peripheral_register_set_pre_read(state->k6.reg.xxx, &kinetis_sim_xxx_pret_read_callback);
         // peripheral_register_set_post_write(state->k6.reg.xxx, &kinetis_sim_xxx_post_write_callback);
+        peripheral_register_set_post_write(state->u.k6.reg.clkdiv1,
+                &kinetis_sim_post_write_callback);
 
         // TODO: add interrupts.
 
@@ -353,6 +387,10 @@ static void kinetis_sim_reset_callback(DeviceState *dev)
 
     // Call parent reset(); this will reset all children registers.
     cm_device_parent_reset(dev, TYPE_KINETIS_SIM);
+
+    KinetisSIMState *state = KINETIS_SIM_STATE(dev);
+
+    kinetis_sim_update_clocks(state);
 }
 
 static void kinetis_sim_class_init_callback(ObjectClass *klass, void *data)

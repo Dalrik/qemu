@@ -175,15 +175,151 @@ static void kinetis_mcg_xxx_post_read_callback(Object *reg, Object *periph,
 }
 #endif
 
+static void kinetis_mcg_update_clocks(KinetisMCGState *state)
+{
+    uint32_t mcg_out_freq_hz = 0;
+    uint16_t divider;
+    // This code adapted from system_MK64F12.c
+
+    if (register_bitfield_is_zero(state->u.k6.fld.c1.clks)) {
+        /* Output of FLL or PLL is selected */
+        if (register_bitfield_is_zero(state->u.k6.fld.c6.plls)) {
+            /* FLL is selected */
+            if (register_bitfield_is_zero(state->u.k6.fld.c1.irefs)) {
+                /* External reference clock is selected */
+                switch (register_bitfield_read_value(state->u.k6.fld.c7.oscsel)) {
+                    case 0x00U:
+                        mcg_out_freq_hz = state->xtal_freq_hz; /* System oscillator drives MCG clock */
+                        break;
+                    case 0x01U:
+                        mcg_out_freq_hz = state->xtal32_freq_hz; /* RTC 32 kHz oscillator drives MCG clock */
+                        break;
+                    case 0x02U:
+                    default:
+                        mcg_out_freq_hz = state->int_irc_freq_hz; /* IRC 48MHz oscillator drives MCG clock */
+                        break;
+                }
+                uint8_t frdiv = register_bitfield_read_value(state->u.k6.fld.c1.frdiv);
+                if (register_bitfield_is_non_zero(state->u.k6.fld.c2.range) && (register_bitfield_read_value(state->u.k6.fld.c7.oscsel) != 0x01U)) {
+                    switch (frdiv) {
+                        case 0x7U:
+                            divider = 1536U;
+                            break;
+                        case 0x6U:
+                            divider = 1280U;
+                            break;
+                        default:
+                            divider = (uint16_t)(32LU << frdiv);
+                            break;
+                    }
+                } else {/* ((MCG->C2 & MCG_C2_RANGE_MASK) != 0x00U) */
+                    divider = (uint16_t)(1LU << frdiv);
+                }
+                mcg_out_freq_hz = (mcg_out_freq_hz / divider); /* Calculate the divided FLL reference clock */
+            } else { /* (!((MCG->C1 & MCG_C1_IREFS_MASK) == 0x00U)) */
+                mcg_out_freq_hz = state->int_slow_freq_hz; /* The slow internal reference clock is selected */
+            } /* (!((MCG->C1 & MCG_C1_IREFS_MASK) == 0x00U)) */
+            /* Select correct multiplier to calculate the MCG output clock  */
+            uint8_t drst_drs_dmx32 = (register_bitfield_read_value(state->u.k6.fld.c4.drst_drs) << 1) |
+                register_bitfield_read_value(state->u.k6.fld.c4.dmx32);
+            switch (drst_drs_dmx32) {
+                case 0x00U:
+                    mcg_out_freq_hz *= 640U;
+                    break;
+                case 0x01U:
+                    mcg_out_freq_hz *= 732U;
+                    break;
+                case 0x02U:
+                    mcg_out_freq_hz *= 1280U;
+                    break;
+                case 0x03U:
+                    mcg_out_freq_hz *= 1464U;
+                    break;
+                case 0x04U:
+                    mcg_out_freq_hz *= 1920U;
+                    break;
+                case 0x05U:
+                    mcg_out_freq_hz *= 2197U;
+                    break;
+                case 0x06U:
+                    mcg_out_freq_hz *= 2560U;
+                    break;
+                case 0x07U:
+                    mcg_out_freq_hz *= 2929U;
+                    break;
+                default:
+                    break;
+            }
+        } else { /* (!((MCG->C6 & MCG_C6_PLLS_MASK) == 0x00U)) */
+            /* PLL is selected */
+            divider = (((uint16_t)register_bitfield_read_value(state->u.k6.fld.c5.prdiv0)) + 0x01U);
+            mcg_out_freq_hz = (uint32_t)(state->xtal_freq_hz / divider); /* Calculate the PLL reference clock */
+            divider = (((uint16_t)register_bitfield_read_value(state->u.k6.fld.c6.vdiv0)) + 24U);
+            mcg_out_freq_hz *= divider;          /* Calculate the MCG output clock */
+        } /* (!((MCG->C6 & MCG_C6_PLLS_MASK) == 0x00U)) */
+    } else if (register_bitfield_read_value(state->u.k6.fld.c1.clks) == 1) {
+        /* Internal reference clock is selected */
+        if (register_bitfield_is_zero(state->u.k6.fld.c2.ircs)) {
+            mcg_out_freq_hz = state->int_slow_freq_hz; /* Slow internal reference clock selected */
+        } else { /* (!((MCG->C2 & MCG_C2_IRCS_MASK) == 0x00U)) */
+            divider = (uint16_t)(0x01LU << register_bitfield_read_value(state->u.k6.fld.sc.fcrdiv));
+            mcg_out_freq_hz = (uint32_t) (state->int_fast_freq_hz / divider); /* Fast internal reference clock selected */
+        } /* (!((MCG->C2 & MCG_C2_IRCS_MASK) == 0x00U)) */
+    } else if (register_bitfield_read_value(state->u.k6.fld.c1.clks) == 2) {
+        /* External reference clock is selected */
+        switch (register_bitfield_read_value(state->u.k6.fld.c7.oscsel)) {
+            case 0x00U:
+                mcg_out_freq_hz = state->xtal_freq_hz;   /* System oscillator drives MCG clock */
+                break;
+            case 0x01U:
+                mcg_out_freq_hz = state->xtal32_freq_hz; /* RTC 32 kHz oscillator drives MCG clock */
+                break;
+            case 0x02U:
+            default:
+                mcg_out_freq_hz = state->int_irc_freq_hz; /* IRC 48MHz oscillator drives MCG clock */
+                break;
+        }
+    } else { /* (!((MCG->C1 & MCG_C1_CLKS_MASK) == 0x80U)) */
+        /* Reserved value */
+    } /* (!((MCG->C1 & MCG_C1_CLKS_MASK) == 0x80U)) */
+
+    qemu_log_mask(LOG_FUNC, "%s() mcg_out_freq_hz=%d\n", __FUNCTION__, mcg_out_freq_hz);
+
+    KinetisSIMState *sim_state = KINETIS_SIM_STATE(cm_device_by_name(DEVICE_PATH_KINETIS_SIM));
+    sim_state->mcg_out_freq_hz = mcg_out_freq_hz;
+    kinetis_sim_update_clocks(sim_state);
+}
+
+static void kinetis_mcg_post_write_callback(Object *reg, Object *periph,
+        uint32_t addr, uint32_t offset, unsigned size,
+        peripheral_register_t value, peripheral_register_t full_value)
+{
+    KinetisMCGState *state = KINETIS_MCG_STATE(periph);
+    kinetis_mcg_update_clocks(state);
+}
+
 // ----------------------------------------------------------------------------
 
 static void kinetis_mcg_instance_init_callback(Object *obj)
 {
     qemu_log_function_name();
 
-    //KinetisMCGState *state = KINETIS_MCG_STATE(obj);
+    KinetisMCGState *state = KINETIS_MCG_STATE(obj);
 
-    // Capabilities are not yet available.
+    cm_object_property_add_uint32(obj, "xtal-freq-hz", &state->xtal_freq_hz);
+    state->xtal_freq_hz = 0;
+
+    cm_object_property_add_uint32(obj, "xtal32-freq-hz", &state->xtal32_freq_hz);
+    state->xtal32_freq_hz = 0;
+
+    cm_object_property_add_uint32(obj, "int-irc-freq-hz", &state->int_irc_freq_hz);
+    state->int_irc_freq_hz = 0;
+
+    cm_object_property_add_uint32(obj, "int-fast-freq-hz", &state->int_fast_freq_hz);
+    state->int_fast_freq_hz = 0;
+
+    cm_object_property_add_uint32(obj, "int-slow-freq-hz", &state->int_slow_freq_hz);
+    state->int_slow_freq_hz = 0;
 
     // TODO: Add code to initialise all members.
 }
@@ -215,8 +351,26 @@ static void kinetis_mcg_realize_callback(DeviceState *dev, Error **errp)
     svd_set_peripheral_address_block(cm_state->svd_json, periph_name, obj);
     peripheral_create_memory_region(obj);
 
+    cm_object_property_set_int(obj, 1, "register-size-bytes");
+
+    assert(capabilities->int_irc_freq_hz);
+    assert(capabilities->int_fast_freq_hz);
+    assert(capabilities->int_slow_freq_hz);
+
+    if (state->int_irc_freq_hz == 0) {
+        state->int_irc_freq_hz = capabilities->int_irc_freq_hz;
+    }
+
+    if (state->int_fast_freq_hz == 0) {
+        state->int_fast_freq_hz = capabilities->int_fast_freq_hz;
+    }
+
+    if (state->int_slow_freq_hz == 0) {
+        state->int_slow_freq_hz = capabilities->int_slow_freq_hz;
+    }
+
     switch (capabilities->family) {
-    case KINETIS_FAMILY_K6:
+        case KINETIS_FAMILY_K6:
 
 
             mk64f12_mcg_create_objects(obj, cm_state->svd_json, periph_name);
@@ -230,15 +384,29 @@ static void kinetis_mcg_realize_callback(DeviceState *dev, Error **errp)
             // peripheral_register_set_post_read(state->k6.reg.xxx, &kinetis_mcg_xxx_post_read_callback);
             // peripheral_register_set_pre_read(state->k6.reg.xxx, &kinetis_mcg_xxx_pret_read_callback);
             // peripheral_register_set_post_write(state->k6.reg.xxx, &kinetis_mcg_xxx_post_write_callback);
+            peripheral_register_set_post_write(state->u.k6.reg.c1,
+                    &kinetis_mcg_post_write_callback);
+            peripheral_register_set_post_write(state->u.k6.reg.c2,
+                    &kinetis_mcg_post_write_callback);
+            peripheral_register_set_post_write(state->u.k6.reg.c4,
+                    &kinetis_mcg_post_write_callback);
+            peripheral_register_set_post_write(state->u.k6.reg.c5,
+                    &kinetis_mcg_post_write_callback);
+            peripheral_register_set_post_write(state->u.k6.reg.c6,
+                    &kinetis_mcg_post_write_callback);
+            peripheral_register_set_post_write(state->u.k6.reg.c7,
+                    &kinetis_mcg_post_write_callback);
+            peripheral_register_set_post_write(state->u.k6.reg.sc,
+                    &kinetis_mcg_post_write_callback);
 
             // TODO: add interrupts.
 
 
-        break;
+            break;
 
-    default:
-        assert(false);
-        break;
+        default:
+            assert(false);
+            break;
     }
 
     peripheral_prepare_registers(obj);
@@ -250,6 +418,10 @@ static void kinetis_mcg_reset_callback(DeviceState *dev)
 
     // Call parent reset(); this will reset all children registers.
     cm_device_parent_reset(dev, TYPE_KINETIS_MCG);
+
+    KinetisMCGState *state = KINETIS_MCG_STATE(dev);
+
+    kinetis_mcg_update_clocks(state);
 }
 
 static void kinetis_mcg_class_init_callback(ObjectClass *klass, void *data)

@@ -121,6 +121,10 @@ static const KinetisCapabilities mk64f12 = {
         .is_k64 = true
     },
 
+    .int_irc_freq_hz = 48000000,
+    .int_fast_freq_hz = 4000000,
+    .int_slow_freq_hz = 32000,
+
     .has_periph_bitband = true,
 
     .has_adc0 = true,

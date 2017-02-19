@@ -77,10 +77,10 @@ typedef struct KinetisMCUState {
 
     //DeviceState *rcc;
 
-    // These two properties are duplicated from RCC, to allow
+    // These two properties are duplicated from MCG, to allow
     // setting them before the object exist.
-    uint32_t hse_freq_hz;
-    uint32_t lse_freq_hz;
+    uint32_t xtal_freq_hz;
+    uint32_t xtal32_freq_hz;
 
     DeviceState *sim;
     DeviceState *mcg;

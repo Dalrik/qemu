@@ -67,6 +67,9 @@ typedef struct {
     // private:
     KinetisSIMParentState parent_obj;
     // public:
+    
+    uint32_t mcg_out_freq_hz;
+    uint32_t core_freq_hz;
 
     const KinetisCapabilities *capabilities;
 
@@ -317,6 +320,8 @@ typedef struct {
     } u;
 
 } KinetisSIMState;
+
+void kinetis_sim_update_clocks(KinetisSIMState* state);
 
 // ----------------------------------------------------------------------------
 

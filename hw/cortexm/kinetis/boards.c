@@ -43,8 +43,8 @@ static void frdm_k64f_board_init_callback(MachineState *machine)
         Object *mcu = cm_object_new_mcu(machine, TYPE_MK64FN1M0VLL12);
 
         // Set the board specific oscillator frequencies.
-        cm_object_property_set_int(mcu, 8000000, "hse-freq-hz"); // 8.0 MHz
-        cm_object_property_set_int(mcu, 32768, "lse-freq-hz"); // 32 kHz
+        cm_object_property_set_int(mcu, 50000000, "xtal-freq-hz"); // 50.0 MHz
+        cm_object_property_set_int(mcu, 32768, "xtal32-freq-hz"); // 32 kHz
 
         cm_object_realize(mcu);
     }

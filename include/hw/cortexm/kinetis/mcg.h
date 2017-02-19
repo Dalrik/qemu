@@ -66,6 +66,13 @@ typedef struct {
 typedef struct {
     // private:
     KinetisMCGParentState parent_obj;
+
+    uint32_t xtal_freq_hz;
+    uint32_t xtal32_freq_hz;
+    uint32_t int_irc_freq_hz;
+    uint32_t int_fast_freq_hz;
+    uint32_t int_slow_freq_hz;
+
     // public:
 
     const KinetisCapabilities *capabilities;

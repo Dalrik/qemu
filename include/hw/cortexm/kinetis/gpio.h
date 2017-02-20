@@ -83,9 +83,6 @@ typedef struct {
 
     const KinetisCapabilities *capabilities;
 
-    // Points to the bitfield that enables the peripheral.
-    Object *enabling_bit;
-
     // Remove it if there is only one port
     kinetis_gpio_index_t port_index;
 

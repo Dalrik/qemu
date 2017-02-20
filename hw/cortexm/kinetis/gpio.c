@@ -146,19 +146,6 @@ static void kinetis_gpio_xxx_post_read_callback(Object *reg, Object *periph,
 
 // ----------------------------------------------------------------------------
 
-// TODO: remove this if the peripheral is always enabled.
-static bool kinetis_gpio_is_enabled(Object *obj)
-{
-    KinetisGPIOState *state = KINETIS_GPIO_STATE(obj);
-
-    if (register_bitfield_is_non_zero(state->enabling_bit)) {
-        return true; // Positive logic, bit == 1 means enabled.
-    }
-
-    // Not enabled
-    return false;
-}
-
 static void kinetis_gpio_instance_init_callback(Object *obj)
 {
     qemu_log_function_name();
@@ -170,9 +157,6 @@ static void kinetis_gpio_instance_init_callback(Object *obj)
     cm_object_property_add_int(obj, "port-index",
             (const int *) &state->port_index);
     state->port_index = KINETIS_PORT_GPIO_UNDEFINED;
-
-    // TODO: remove this if the peripheral is always enabled.
-    state->enabling_bit = NULL;
     
     // TODO: Add code to initialise all members.
 }
@@ -206,9 +190,6 @@ static void kinetis_gpio_realize_callback(DeviceState *dev, Error **errp)
     svd_set_peripheral_address_block(cm_state->svd_json, periph_name, obj);
     peripheral_create_memory_region(obj);
 
-    // TODO: remove this if the peripheral is always enabled.
-    char enabling_bit_name[KINETIS_SIM_SIZEOF_ENABLING_BITFIELD];
-
     switch (capabilities->family) {
     case KINETIS_FAMILY_K6:
 
@@ -227,11 +208,6 @@ static void kinetis_gpio_realize_callback(DeviceState *dev, Error **errp)
 
             // TODO: add interrupts.
 
-            // TODO: remove this if the peripheral is always enabled.
-            snprintf(enabling_bit_name, sizeof(enabling_bit_name) - 1,
-                DEVICE_PATH_KINETIS_SIM "/SCGC5/PORT%c",
-                'A' + state->port_index - KINETIS_PORT_GPIOA);
-
 
         break;
 
@@ -239,9 +215,6 @@ static void kinetis_gpio_realize_callback(DeviceState *dev, Error **errp)
         assert(false);
         break;
     }
-
-    // TODO: remove this if the peripheral is always enabled.
-    state->enabling_bit = OBJECT(cm_device_by_name(enabling_bit_name));
 
     peripheral_prepare_registers(obj);
 }
@@ -260,10 +233,6 @@ static void kinetis_gpio_class_init_callback(ObjectClass *klass, void *data)
 
     dc->reset = kinetis_gpio_reset_callback;
     dc->realize = kinetis_gpio_realize_callback;
-
-    // TODO: remove this if the peripheral is always enabled.
-    PeripheralClass *per_class = PERIPHERAL_CLASS(klass);
-    per_class->is_enabled = kinetis_gpio_is_enabled;
 }
 
 static const TypeInfo kinetis_gpio_type_info = {

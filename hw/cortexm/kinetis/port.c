@@ -555,7 +555,7 @@ static void kinetis_port_update_out(KinetisPORTState *state)
     static int64_t last_time;
     int64_t time = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
 
-    qemu_log_mask(LOG_FUNC, "%s(PORT%c, %s, t=%li, d=%li)\n", __FUNCTION__, 'A'+state->port_index, out_str, time, time - last_time);
+    qemu_log_mask(LOG_IO, "%s(PORT%c, %s, t=%li, d=%li)\n", __FUNCTION__, 'A'+state->port_index, out_str, time, time - last_time);
     last_time = time;
 }
 

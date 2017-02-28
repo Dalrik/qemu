@@ -48,6 +48,7 @@ static inline bool qemu_log_separate(void)
 // Leave some space to avoid overlapping.
 #define LOG_FUNC          (1 << 20)
 #define LOG_MR            (1 << 21)
+#define LOG_IO            (1 << 22)
 #endif /* defined(CONFIG_GNU_ARM_ECLIPSE) */
 
 /* Returns true if a bit is set in the current loglevel mask

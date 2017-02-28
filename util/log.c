@@ -280,6 +280,8 @@ const QEMULogItem qemu_log_items[] = {
       "log functions entry" },
     { LOG_MR, "mr",
       "log trace messages for memory regions read/writes" },
+    { LOG_IO, "io",
+      "log trace messages for externally-visible I/O operations" },
 #endif /* defined(CONFIG_GNU_ARM_ECLIPSE) */
 
     { 0, NULL, NULL },

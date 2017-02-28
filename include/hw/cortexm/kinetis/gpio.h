@@ -25,6 +25,7 @@
 
 #include <hw/cortexm/peripheral.h>
 #include <hw/cortexm/kinetis/capabilities.h>
+#include <hw/cortexm/kinetis/port.h>
 
 // ----------------------------------------------------------------------------
 
@@ -85,6 +86,8 @@ typedef struct {
 
     // Remove it if there is only one port
     kinetis_gpio_index_t port_index;
+
+    KinetisPORTState *port;
 
     union {
       // ----- 8< ----- 8< -----  8< ----- 8< ----- 8< ----- 8< ----- 8< -----

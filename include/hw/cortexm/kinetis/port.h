@@ -89,6 +89,10 @@ typedef struct {
     // Remove it if there is only one port
     kinetis_port_index_t port_index;
 
+    uint32_t gpio_pin_mask;
+    uint32_t gpio_mask;
+    uint32_t gpio_value;
+
     union {
       // ----- 8< ----- 8< -----  8< ----- 8< ----- 8< ----- 8< ----- 8< -----
 
@@ -146,5 +150,8 @@ typedef struct {
 // ----------------------------------------------------------------------------
 
 Object* kinetis_port_create(Object *parent, kinetis_port_index_t index);
+
+void kinetis_port_set_gpio_out(KinetisPORTState *state, uint32_t value,
+                                  uint32_t mask);
 
 #endif /* KINETIS_PORT_H_ */

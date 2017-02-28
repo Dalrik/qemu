@@ -22,6 +22,7 @@
 #include <hw/cortexm/kinetis/mcu.h>
 #include <hw/cortexm/helper.h>
 #include <hw/cortexm/svd.h>
+#include <qemu/timer.h>
 
 // ----- Generated code -------------------------------------------------------
 //
@@ -462,6 +463,17 @@ Object* kinetis_port_create(Object *parent, kinetis_port_index_t index)
     return port;
 }
 
+static void kinetis_port_update_out(KinetisPORTState *state);
+
+void kinetis_port_set_gpio_out(KinetisPORTState *state, uint32_t value,
+                                  uint32_t mask)
+{
+    state->gpio_value = value;
+    state->gpio_mask  = mask;
+
+    kinetis_port_update_out(state);
+}
+
 // ----- Private --------------------------------------------------------------
 
 #if 0
@@ -518,6 +530,54 @@ static void kinetis_port_xxx_post_read_callback(Object *reg, Object *periph,
 }
 #endif
 
+static void kinetis_port_update_out(KinetisPORTState *state)
+{
+    // For now, just print the result out
+    char out_str[33];
+    for (int i = 0; i < 32; i++) {
+        uint32_t bit_mask = (1 << i);
+        if (!(state->gpio_pin_mask & bit_mask)) {
+            // Pin is not configured as GPIO
+            out_str[31-i] = 'X';
+        } else if (!(state->gpio_mask & bit_mask)) {
+            // Pin is set as an input
+            out_str[31-i] = 'Z';
+        } else if (state->gpio_value & bit_mask) {
+            // Output is high
+            out_str[31-i] = '1';
+        } else {
+            // Output is low
+            out_str[31-i] = '0';
+        }
+    }
+    out_str[32] = '\0';
+
+    static int64_t last_time;
+    int64_t time = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
+
+    qemu_log_mask(LOG_FUNC, "%s(PORT%c, %s, t=%li, d=%li)\n", __FUNCTION__, 'A'+state->port_index, out_str, time, time - last_time);
+    last_time = time;
+}
+
+static void kinetis_port_pcr_post_write_callback(Object *reg, Object *periph,
+        uint32_t addr, uint32_t offset, unsigned size,
+        peripheral_register_t value, peripheral_register_t full_value)
+{
+    KinetisPORTState *state = KINETIS_PORT_STATE(periph);
+
+    uint32_t pin_mask = 0;
+    // Recompute the gpio pin mask by iterating through all the PCRs
+    for (int i = 0; i < 32; i++) {
+        if (register_bitfield_read_value(state->u.k6.fld.pcr[i].mux) == 1) {
+            pin_mask |= (1 << i);
+        }
+    }
+
+    state->gpio_pin_mask = pin_mask;
+
+    kinetis_port_update_out(state);
+}
+
 // ----------------------------------------------------------------------------
 
 // TODO: remove this if the peripheral is always enabled.
@@ -549,6 +609,9 @@ static void kinetis_port_instance_init_callback(Object *obj)
     state->enabling_bit = NULL;
     
     // TODO: Add code to initialise all members.
+    state->gpio_pin_mask = 0;
+    state->gpio_mask = 0;
+    state->gpio_value = 0;
 }
 
 static void kinetis_port_realize_callback(DeviceState *dev, Error **errp)
@@ -598,6 +661,10 @@ static void kinetis_port_realize_callback(DeviceState *dev, Error **errp)
             // peripheral_register_set_post_read(state->k6.reg.xxx, &kinetis_port_xxx_post_read_callback);
             // peripheral_register_set_pre_read(state->k6.reg.xxx, &kinetis_port_xxx_pret_read_callback);
             // peripheral_register_set_post_write(state->k6.reg.xxx, &kinetis_port_xxx_post_write_callback);
+
+            for (int i = 0; i < 32; i++) {
+                peripheral_register_set_post_write(state->u.k6.reg.pcr[i], &kinetis_port_pcr_post_write_callback);
+            }
 
             // TODO: add interrupts.
 

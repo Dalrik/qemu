@@ -144,6 +144,67 @@ static void kinetis_gpio_xxx_post_read_callback(Object *reg, Object *periph,
 }
 #endif
 
+static void kinetis_gpio_update_outputs(KinetisGPIOState *state)
+{
+    peripheral_register_t pddr_value = peripheral_register_get_raw_value(state->u.k6.reg.pddr);
+    peripheral_register_t pdor_value = peripheral_register_get_raw_value(state->u.k6.reg.pdor);
+
+    kinetis_port_set_gpio_out(state->port, pdor_value, pddr_value);
+}
+
+static void kinetis_gpio_pddr_post_write_callback(Object *reg, Object *periph,
+        uint32_t addr, uint32_t offset, unsigned size,
+        peripheral_register_t value, peripheral_register_t full_value)
+{
+    KinetisGPIOState *state = KINETIS_GPIO_STATE(periph);
+
+    kinetis_gpio_update_outputs(state);
+}
+
+static void kinetis_gpio_pdor_post_write_callback(Object *reg, Object *periph,
+        uint32_t addr, uint32_t offset, unsigned size,
+        peripheral_register_t value, peripheral_register_t full_value)
+{
+    KinetisGPIOState *state = KINETIS_GPIO_STATE(periph);
+
+    kinetis_gpio_update_outputs(state);
+}
+
+static void kinetis_gpio_psor_post_write_callback(Object *reg, Object *periph,
+        uint32_t addr, uint32_t offset, unsigned size,
+        peripheral_register_t value, peripheral_register_t full_value)
+{
+    KinetisGPIOState *state = KINETIS_GPIO_STATE(periph);
+
+    peripheral_register_or_raw_value(state->u.k6.reg.pdor, full_value);
+
+    kinetis_gpio_update_outputs(state);
+}
+
+static void kinetis_gpio_pcor_post_write_callback(Object *reg, Object *periph,
+        uint32_t addr, uint32_t offset, unsigned size,
+        peripheral_register_t value, peripheral_register_t full_value)
+{
+    KinetisGPIOState *state = KINETIS_GPIO_STATE(periph);
+
+    peripheral_register_and_raw_value(state->u.k6.reg.pdor, ~full_value);
+
+    kinetis_gpio_update_outputs(state);
+}
+
+static void kinetis_gpio_ptor_post_write_callback(Object *reg, Object *periph,
+        uint32_t addr, uint32_t offset, unsigned size,
+        peripheral_register_t value, peripheral_register_t full_value)
+{
+    KinetisGPIOState *state = KINETIS_GPIO_STATE(periph);
+
+    peripheral_register_t pdor_value = peripheral_register_get_raw_value(state->u.k6.reg.pdor);
+    pdor_value ^= full_value;
+    peripheral_register_set_raw_value(state->u.k6.reg.pdor, pdor_value);
+
+    kinetis_gpio_update_outputs(state);
+}
+
 // ----------------------------------------------------------------------------
 
 static void kinetis_gpio_instance_init_callback(Object *obj)
@@ -205,6 +266,11 @@ static void kinetis_gpio_realize_callback(DeviceState *dev, Error **errp)
             // peripheral_register_set_post_read(state->k6.reg.xxx, &kinetis_gpio_xxx_post_read_callback);
             // peripheral_register_set_pre_read(state->k6.reg.xxx, &kinetis_gpio_xxx_pret_read_callback);
             // peripheral_register_set_post_write(state->k6.reg.xxx, &kinetis_gpio_xxx_post_write_callback);
+            peripheral_register_set_post_write(state->u.k6.reg.pddr, &kinetis_gpio_pddr_post_write_callback);
+            peripheral_register_set_post_write(state->u.k6.reg.pdor, &kinetis_gpio_pdor_post_write_callback);
+            peripheral_register_set_post_write(state->u.k6.reg.psor, &kinetis_gpio_psor_post_write_callback);
+            peripheral_register_set_post_write(state->u.k6.reg.pcor, &kinetis_gpio_pcor_post_write_callback);
+            peripheral_register_set_post_write(state->u.k6.reg.ptor, &kinetis_gpio_ptor_post_write_callback);
 
             // TODO: add interrupts.
 
@@ -215,6 +281,12 @@ static void kinetis_gpio_realize_callback(DeviceState *dev, Error **errp)
         assert(false);
         break;
     }
+
+    char port_name[50];
+    snprintf(port_name, sizeof(port_name) - 1, DEVICE_PATH_KINETIS "PORT%c",
+            'A' + state->port_index);
+    state->port = KINETIS_PORT_STATE(cm_device_by_name(port_name));
+    assert( state->port );
 
     peripheral_prepare_registers(obj);
 }

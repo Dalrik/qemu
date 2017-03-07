@@ -80,6 +80,9 @@ typedef struct {
     // Whether each timer is currently running
     bool timer_enabled[4];
 
+    // Previous tif value, for tracking ACKs
+    bool flag_prev[4];
+
     // QEMU ptimer objects
     ptimer_state *timer[4];
 

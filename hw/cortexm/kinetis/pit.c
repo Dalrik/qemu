@@ -165,6 +165,18 @@ static void kinetis_pit_update_irqs(KinetisPITState *state)
     for (i = 0; i < 4; i++) {
         bool interrupt_enabled = register_bitfield_read_value(state->u.k6.fld.tctrl[i].tie);
         bool flag = register_bitfield_read_value(state->u.k6.fld.tflg[i].tif);
+
+        // Log timer flag being set, and ACKs
+        if (flag != state->flag_prev[i]) {
+            int64_t time = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
+            if (flag) {
+                qemu_log_mask(LOG_IO, "kinetis_pit_timer_expire(%d, t=%li)\n", i, time);
+            } else {
+                qemu_log_mask(LOG_IO, "kinetis_pit_timer_ack(%d, t=%li)\n", i, time);
+            }
+            state->flag_prev[i] = flag;
+        }
+
         bool irq_level = flag & interrupt_enabled;
         cm_irq_set(state->irq_out[i], irq_level);
     }
@@ -180,13 +192,19 @@ static void kinetis_pit_timer_start(KinetisPITState *state, int timer_id)
     peripheral_register_t ldval = peripheral_register_read_value(state->u.k6.reg.ldval[timer_id]);
     ptimer_set_limit(timer, ldval, 1);
 
+    int64_t time = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
+    qemu_log_mask(LOG_IO, "%s(%d, core_freq_hz=%d, ldval=%li, t=%li)\n", __FUNCTION__, timer_id, state->sim->core_freq_hz, ldval, time);
+
     ptimer_run(timer, 1 /* oneshot mode */);
 }
 
-static void kinetis_pit_timer_cancel(KinetisPITState *state, int timer_id)
+static void kinetis_pit_timer_stop(KinetisPITState *state, int timer_id)
 {
     assert(timer_id >= 0 && timer_id < 4);
     ptimer_stop(state->timer[timer_id]);
+
+    int64_t time = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
+    qemu_log_mask(LOG_IO, "%s(%d, t=%li)\n", __FUNCTION__, timer_id, time);
 }
 
 typedef struct {
@@ -197,14 +215,15 @@ typedef struct {
 static void kinetis_pit_timer_expire(void *opaque)
 {
     KinetisPITTimerInfo *info = (KinetisPITTimerInfo*) opaque;
-    printf("timer expire %d\n", info->timer_id);
-    kinetis_pit_timer_start(info->state, info->timer_id);
 
     // Set TIF
     peripheral_register_set_raw_value(info->state->u.k6.reg.tflg[info->timer_id], 1);
 
     // Update the IRQ state, in case TIE was enabled
     kinetis_pit_update_irqs(info->state);
+
+    // Restart the timer 
+    kinetis_pit_timer_start(info->state, info->timer_id);
 }
 
 static peripheral_register_t kinetis_pit_tflg_pre_write_callback(Object *reg,
@@ -242,7 +261,7 @@ static void kinetis_pit_mcr_tctrl_post_write_callback(Object *reg, Object *perip
             if (timer_enabled) {
                 kinetis_pit_timer_start(state, i);
             } else {
-                kinetis_pit_timer_cancel(state, i);
+                kinetis_pit_timer_stop(state, i);
             }
         }
     }
@@ -279,6 +298,8 @@ static void kinetis_pit_instance_init_callback(Object *obj)
     int i;
     for (i = 0; i < 4; i++) {
         state->timer_enabled[i] = false;
+        state->flag_prev[i] = false;
+
         KinetisPITTimerInfo *info = g_malloc(sizeof(KinetisPITTimerInfo));
         info->state = state;
         info->timer_id = i;

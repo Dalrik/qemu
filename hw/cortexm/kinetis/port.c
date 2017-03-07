@@ -534,11 +534,12 @@ static void kinetis_port_update_out(KinetisPORTState *state)
 {
     // For now, just print the result out
     char out_str[33];
-    for (int i = 0; i < 32; i++) {
+    int i;
+    for (i = 0; i < 32; i++) {
         uint32_t bit_mask = (1 << i);
         if (!(state->gpio_pin_mask & bit_mask)) {
             // Pin is not configured as GPIO
-            out_str[31-i] = 'X';
+            out_str[31-i] = 'x';
         } else if (!(state->gpio_mask & bit_mask)) {
             // Pin is set as an input
             out_str[31-i] = 'Z';
@@ -552,11 +553,9 @@ static void kinetis_port_update_out(KinetisPORTState *state)
     }
     out_str[32] = '\0';
 
-    static int64_t last_time;
     int64_t time = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
 
-    qemu_log_mask(LOG_IO, "%s(PORT%c, %s, t=%li, d=%li)\n", __FUNCTION__, 'A'+state->port_index, out_str, time, time - last_time);
-    last_time = time;
+    qemu_log_mask(LOG_IO, "%s(PORT%c, %s, t=%li)\n", __FUNCTION__, 'A'+state->port_index, out_str, time);
 }
 
 static void kinetis_port_pcr_post_write_callback(Object *reg, Object *periph,
@@ -567,7 +566,8 @@ static void kinetis_port_pcr_post_write_callback(Object *reg, Object *periph,
 
     uint32_t pin_mask = 0;
     // Recompute the gpio pin mask by iterating through all the PCRs
-    for (int i = 0; i < 32; i++) {
+    int i;
+    for (i = 0; i < 32; i++) {
         if (register_bitfield_read_value(state->u.k6.fld.pcr[i].mux) == 1) {
             pin_mask |= (1 << i);
         }

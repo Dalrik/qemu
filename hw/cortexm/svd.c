@@ -271,7 +271,8 @@ Object *svd_add_peripheral_properties_and_children(Object *obj,
             const char* regi_name_template = json_object_get_string(regi, "name");
 
             uint32_t offset = 0;
-            for (unsigned int i = 0; i < dim; i++) {
+            unsigned int i;
+            for (i = 0; i < dim; i++) {
                 if (dim_index == NULL) {
                     error_printf("Not enough elements in dimIndex.\n");
                     exit(1);

@@ -205,6 +205,19 @@ static void kinetis_mcu_realize_callback(DeviceState *dev, Error **errp)
         state->num_port = 5;
     }
 
+    // The presence in SVD is maximal, must be validated by capabilities.
+    // SIM
+    if (capabilities->has_pit
+            && svd_has_named_peripheral(cm_state->svd_json, "PIT")) {
+        // PIT will be named "/machine/mcu/kinetis/PIT"
+        Object *pit = cm_object_new(state->container, "PIT",
+        TYPE_KINETIS_PIT);
+
+        cm_object_realize(pit);
+
+        state->pit = DEVICE(pit);
+    }
+
 #if 0
 
     // FLASH; assume the presence in SVD is enough.

@@ -29,6 +29,7 @@
 #include <hw/cortexm/kinetis/sim.h>
 #include <hw/cortexm/kinetis/port.h>
 #include <hw/cortexm/kinetis/gpio.h>
+#include <hw/cortexm/kinetis/pit.h>
 #include <hw/cortexm/parson.h>
 
 #include <hw/cortexm/kinetis/capabilities.h>
@@ -92,7 +93,7 @@ typedef struct KinetisMCUState {
     DeviceState *gpio[KINETIS_MAX_PORT];
     int num_port;
 
-    //DeviceState *flash;
+    DeviceState *pit;
     //DeviceState *pwr;
     //DeviceState *exti;
 

@@ -646,6 +646,7 @@ static void kinetis_port_realize_callback(DeviceState *dev, Error **errp)
     // TODO: remove this if the peripheral is always enabled.
     char enabling_bit_name[KINETIS_SIM_SIZEOF_ENABLING_BITFIELD];
 
+    int i;
     switch (capabilities->family) {
     case KINETIS_FAMILY_K6:
 
@@ -662,7 +663,7 @@ static void kinetis_port_realize_callback(DeviceState *dev, Error **errp)
             // peripheral_register_set_pre_read(state->k6.reg.xxx, &kinetis_port_xxx_pret_read_callback);
             // peripheral_register_set_post_write(state->k6.reg.xxx, &kinetis_port_xxx_post_write_callback);
 
-            for (int i = 0; i < 32; i++) {
+            for (i = 0; i < 32; i++) {
                 peripheral_register_set_post_write(state->u.k6.reg.pcr[i], &kinetis_port_pcr_post_write_callback);
             }
 

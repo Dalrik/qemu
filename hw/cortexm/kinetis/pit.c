@@ -189,13 +189,11 @@ static void kinetis_pit_timer_start(KinetisPITState *state, int timer_id)
 
     ptimer_state *timer = state->timer[timer_id];
     ptimer_set_freq(timer, state->sim->core_freq_hz);
-    peripheral_register_t ldval = peripheral_register_read_value(state->u.k6.reg.ldval[timer_id]);
-    ptimer_set_limit(timer, ldval, 1);
 
     int64_t time = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
-    qemu_log_mask(LOG_IO, "%s(%d, core_freq_hz=%d, ldval=%li, t=%li)\n", __FUNCTION__, timer_id, state->sim->core_freq_hz, ldval, time);
+    qemu_log_mask(LOG_IO, "%s(%d, core_freq_hz=%d, t=%li)\n", __FUNCTION__, timer_id, state->sim->core_freq_hz, time);
 
-    ptimer_run(timer, 1 /* oneshot mode */);
+    ptimer_run(timer, 0);
 }
 
 static void kinetis_pit_timer_stop(KinetisPITState *state, int timer_id)
@@ -221,9 +219,6 @@ static void kinetis_pit_timer_expire(void *opaque)
 
     // Update the IRQ state, in case TIE was enabled
     kinetis_pit_update_irqs(info->state);
-
-    // Restart the timer 
-    kinetis_pit_timer_start(info->state, info->timer_id);
 }
 
 static peripheral_register_t kinetis_pit_tflg_pre_write_callback(Object *reg,
@@ -244,6 +239,24 @@ static void kinetis_pit_tflg_post_write_callback(Object *reg, Object *periph,
 
     // If TIF was just cleared, need to lower the IRQ
     kinetis_pit_update_irqs(state);
+}
+
+static void kinetis_pit_ldval_post_write_callback(Object *reg, Object *periph,
+        uint32_t addr, uint32_t offset, unsigned size,
+        peripheral_register_t value, peripheral_register_t full_value)
+{
+    KinetisPITState *state = KINETIS_PIT_STATE(periph);
+
+    int i;
+    for (i = 0; i < 4; i++) {
+        peripheral_register_t ldval = peripheral_register_get_raw_value(state->u.k6.reg.ldval[i]);
+        if (ldval != state->ldval_prev[i]) {
+            int64_t time = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
+            qemu_log_mask(LOG_IO, "%s(%d, %li, t=%li)\n", __FUNCTION__, i, ldval, time);
+            ptimer_set_limit(state->timer[i], ldval, 0);
+            state->ldval_prev[i] = ldval;
+        }
+    }
 }
 
 static void kinetis_pit_mcr_tctrl_post_write_callback(Object *reg, Object *periph,
@@ -299,12 +312,13 @@ static void kinetis_pit_instance_init_callback(Object *obj)
     for (i = 0; i < 4; i++) {
         state->timer_enabled[i] = false;
         state->flag_prev[i] = false;
+        state->ldval_prev[i] = 0;
 
         KinetisPITTimerInfo *info = g_malloc(sizeof(KinetisPITTimerInfo));
         info->state = state;
         info->timer_id = i;
         QEMUBH *bh = qemu_bh_new(kinetis_pit_timer_expire, info);
-        state->timer[i] = ptimer_init(bh, PTIMER_POLICY_DEFAULT);
+        state->timer[i] = ptimer_init(bh, PTIMER_POLICY_NO_IMMEDIATE_TRIGGER);
     }
 
     cm_irq_init_out(DEVICE(obj), state->irq_out, KINETIS_IRQ_PIT_OUT, 4);
@@ -341,6 +355,7 @@ static void kinetis_pit_realize_callback(DeviceState *dev, Error **errp)
 
     char enabling_bit_name[KINETIS_SIM_SIZEOF_ENABLING_BITFIELD];
 
+    DeviceState *nvic = DEVICE(cm_device_by_name(DEVICE_PATH_CORTEXM_NVIC));
     switch (capabilities->family) {
     case KINETIS_FAMILY_K6:
 
@@ -362,11 +377,19 @@ static void kinetis_pit_realize_callback(DeviceState *dev, Error **errp)
                 peripheral_register_set_pre_write(state->u.k6.reg.tflg[i], kinetis_pit_tflg_pre_write_callback);
                 peripheral_register_set_post_write(state->u.k6.reg.tflg[i], kinetis_pit_tflg_post_write_callback);
                 peripheral_register_set_post_write(state->u.k6.reg.tctrl[i], kinetis_pit_mcr_tctrl_post_write_callback);
+                peripheral_register_set_post_write(state->u.k6.reg.ldval[i], kinetis_pit_ldval_post_write_callback);
             }
 
-            // TODO: add interrupts.
+            // interrupts.
+            cm_irq_connect(dev, KINETIS_IRQ_PIT_OUT, 0, nvic, IRQ_NVIC_IN,
+                    K64_PIT_Channel0_IRQn);
+            cm_irq_connect(dev, KINETIS_IRQ_PIT_OUT, 1, nvic, IRQ_NVIC_IN,
+                    K64_PIT_Channel0_IRQn);
+            cm_irq_connect(dev, KINETIS_IRQ_PIT_OUT, 2, nvic, IRQ_NVIC_IN,
+                    K64_PIT_Channel0_IRQn);
+            cm_irq_connect(dev, KINETIS_IRQ_PIT_OUT, 3, nvic, IRQ_NVIC_IN,
+                    K64_PIT_Channel0_IRQn);
 
-            // TODO: remove this if the peripheral is always enabled.
             snprintf(enabling_bit_name, sizeof(enabling_bit_name) - 1,
                 DEVICE_PATH_KINETIS_SIM "/SCGC6/PIT");
 
@@ -382,26 +405,6 @@ static void kinetis_pit_realize_callback(DeviceState *dev, Error **errp)
 
     state->sim = KINETIS_SIM_STATE(cm_device_by_name(DEVICE_PATH_KINETIS "SIM"));
     assert( state->sim );
-
-    // Connect PIT interupt lines
-    DeviceState *nvic = DEVICE(cm_device_by_name(DEVICE_PATH_CORTEXM_NVIC));
-    switch (capabilities->family) {
-    case KINETIS_FAMILY_K6:
-
-        cm_irq_connect(dev, KINETIS_IRQ_PIT_OUT, 0, nvic, IRQ_NVIC_IN,
-                K64_PIT_Channel0_IRQn);
-        cm_irq_connect(dev, KINETIS_IRQ_PIT_OUT, 1, nvic, IRQ_NVIC_IN,
-                K64_PIT_Channel0_IRQn);
-        cm_irq_connect(dev, KINETIS_IRQ_PIT_OUT, 2, nvic, IRQ_NVIC_IN,
-                K64_PIT_Channel0_IRQn);
-        cm_irq_connect(dev, KINETIS_IRQ_PIT_OUT, 3, nvic, IRQ_NVIC_IN,
-                K64_PIT_Channel0_IRQn);
-        break;
-
-    default:
-        assert(false);
-        break;
-    }
 
     peripheral_prepare_registers(obj);
 }
